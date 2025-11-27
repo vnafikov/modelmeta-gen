@@ -31,7 +31,7 @@ const (
 
 package {{.Package}}
 {{if .HasDefaultColumns}}
-const {{.Type}}DefaultColumns = "{{.DefaultColumns}}"
+const {{.Type}}DefaultColumns = {{.DefaultColumns}}
 {{end}}
 var {{.Type}}Meta = meta.NewMeta([]meta.FieldMeta{
 {{range .Fields}}	{Field: "{{.Field}}", Column: "{{.Column}}", Property: "{{.Property}}"},
@@ -58,6 +58,9 @@ func (m *{{$.Type}}) {{.}}TZ() nullable.Time {
   return datetime.InTimeZone(m.{{.}}.Time, m.{{.}}UTCOffset)
 }
 {{end}}`
+
+	tabLen     = 4
+	maxLineLen = 140
 
 	fileSuffix                           = "_meta_gen.go"
 	modeRWOwnerRGroupROthers os.FileMode = 0o644
@@ -145,7 +148,7 @@ func (g *generator) handle() error {
 	}
 
 	g.readStructData()
-	if g.structData.fields == nil {
+	if len(g.structData.fields) == 0 {
 		return nil
 	}
 
@@ -296,8 +299,8 @@ func (g *generator) templateData() any {
 		Type:                     g.typeName,
 		SourcePath:               g.sourcePath,
 		Package:                  g.pkg.Name,
-		HasDefaultColumns:        g.structData.defaultColumns != nil,
-		DefaultColumns:           strings.Join(g.structData.defaultColumns, ", "),
+		HasDefaultColumns:        len(g.structData.defaultColumns) > 0,
+		DefaultColumns:           g.defaultColumns(),
 		FieldsEndsWithAt:         g.structData.tzFields,
 		NullableFieldsEndsWithAt: g.structData.nullableTZFields,
 	}
@@ -310,6 +313,39 @@ func (g *generator) templateData() any {
 		})
 	}
 	return d
+}
+
+func (g *generator) defaultColumns() string {
+	if len(g.structData.defaultColumns) == 0 {
+		return ""
+	}
+
+	columns := `"` + strings.Join(g.structData.defaultColumns, ", ") + `"`
+	if len("const "+g.typeName+"DefaultColumns = "+columns) <= maxLineLen {
+		return columns
+	}
+
+	const multilineSeparator = `
+	`
+	column := g.structData.defaultColumns[0]
+	var sb strings.Builder
+	sb.WriteString(multilineSeparator + column)
+	lineLen := tabLen + len(column)
+	for _, column := range g.structData.defaultColumns[1:] {
+		sb.WriteByte(',')
+		lineLen++
+		columnLen := len(column) + 2 // Space + comma or back quote.
+		if lineLen+columnLen > maxLineLen {
+			sb.WriteString(multilineSeparator)
+			lineLen = tabLen
+		} else {
+			sb.WriteByte(' ')
+			lineLen++
+		}
+		sb.WriteString(column)
+		lineLen += len(column)
+	}
+	return "`" + sb.String() + "`"
 }
 
 func (g *generator) formatAndAddImport() error {
