@@ -43,18 +43,15 @@ func (m {{.Type}}) Fields() (entity *{{.Type}}, fields []any) {
 {{end}}{{end}}	}
 }
 {{end}}
-func (m *{{.Type}}) ColumnToProperty(column string) string {
-	if fieldMeta, ok := {{.Type}}Meta.ByColumn(column); ok {
-		return fieldMeta.Property
-	}
-	return ""
+func (m *{{.Type}}) Meta() *meta.Meta {
+	return {{.Type}}Meta
 }
 {{range .FieldsEndsWithAt}}
-func (m *{{$.Type}}) {{.}}TZ() nullable.Time {
+func (m *{{$.Type}}) {{.}}InTZ() nullable.Time {
   return datetime.InTimeZone(m.{{.}}, m.{{.}}UTCOffset)
 }
 {{end}}{{range .NullableFieldsEndsWithAt}}
-func (m *{{$.Type}}) {{.}}TZ() nullable.Time {
+func (m *{{$.Type}}) {{.}}InTZ() nullable.Time {
   return datetime.InTimeZone(m.{{.}}.Time, m.{{.}}UTCOffset)
 }
 {{end}}`
