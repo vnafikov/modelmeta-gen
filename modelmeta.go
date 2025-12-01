@@ -33,9 +33,21 @@ package {{.Package}}
 {{if .HasDefaultColumns}}
 const {{.Type}}DefaultColumns = {{.DefaultColumns}}
 {{end}}
-var {{.Type}}Meta = meta.NewMeta([]meta.FieldMeta{
-{{range .Fields}}	{Field: "{{.Field}}", Column: "{{.Column}}", Property: "{{.Property}}"},
-{{end}}})
+var (
+	{{.Type}}Meta = {{.UnexportedType}}Meta{
+		Lookup_: {{.UnexportedType}}LookupMeta,
+{{range $i, $f := .Fields}}		{{.Field}}: {{$.UnexportedType}}LookupMeta.Fields()[{{$i}}],
+{{end}}	}
+
+	{{.UnexportedType}}LookupMeta = meta.NewLookup([]meta.Field{
+{{range .Fields}}		{Field: "{{.Field}}", Column: "{{.Column}}", Property: "{{.Property}}", Type: "{{.Type}}"},
+{{end}}	})
+)
+
+type {{.UnexportedType}}Meta struct {
+	*meta.Lookup_
+{{range .Fields}}	{{.Field}} meta.Field
+{{end}}}
 {{if .HasDefaultColumns}}
 func (m {{.Type}}) Fields() (entity *{{.Type}}, fields []any) {
 	return &m, []any{
@@ -43,8 +55,8 @@ func (m {{.Type}}) Fields() (entity *{{.Type}}, fields []any) {
 {{end}}{{end}}	}
 }
 {{end}}
-func (m *{{.Type}}) Meta() *meta.Meta {
-	return {{.Type}}Meta
+func (m *{{.Type}}) LookupMeta() *meta.Lookup_ {
+	return {{.Type}}Meta.Lookup_
 }
 {{range .FieldsEndsWithAt}}
 func (m *{{$.Type}}) {{.}}InTZ() nullable.Time {
@@ -189,7 +201,23 @@ func (g *generator) readStruct() error {
 func (g *generator) readSourcePath(object types.Object) {
 	path := g.pkg.Fset.File(object.Pos()).Name()
 	filename := filepath.Base(path)
-	g.sourcePath = filepath.Join(g.pkg.PkgPath, filename)
+	pkgPath := commonTail(g.pkg.PkgPath, filepath.ToSlash(g.pkg.Dir))
+	pkgPath = strings.TrimPrefix(pkgPath, "/")
+	g.sourcePath = pkgPath + "/" + filename
+}
+
+func commonTail(a, b string) string {
+	i := len(a) - 1
+	j := len(b) - 1
+	if a[i] != b[j] {
+		return ""
+	}
+
+	for i >= 0 && j >= 0 && a[i] == b[j] {
+		i--
+		j--
+	}
+	return a[i+1:]
 }
 
 func (g *generator) readStructData() {
@@ -213,7 +241,7 @@ func (g *generator) readStructFields() {
 		property := api[0]
 		g.structData.fields = append(g.structData.fields, structField{
 			field:           fieldName,
-			typeName:        field.Type().String(),
+			typeName:        onlyType(field.Type().String()),
 			column:          column,
 			isDefaultColumn: isDefaultColumn,
 			property:        property,
@@ -223,6 +251,14 @@ func (g *generator) readStructFields() {
 			g.structData.defaultColumns = append(g.structData.defaultColumns, column)
 		}
 	}
+}
+
+func onlyType(typeName string) string {
+	index := strings.LastIndexByte(typeName, '/')
+	if index < 0 {
+		return typeName
+	}
+	return typeName[index+1:]
 }
 
 func parseTag(tag string, keys ...string) [][]string {
@@ -241,10 +277,10 @@ func parseTag(tag string, keys ...string) [][]string {
 func (g *generator) readStructTZFields() {
 	for _, field := range g.structData.fields {
 		if strings.HasSuffix(field.field, "At") && slices.Contains(g.structData.fieldNames, field.field+"UTCOffset") {
-			switch {
-			case field.typeName == "time.Time":
+			switch field.typeName {
+			case "time.Time":
 				g.structData.tzFields = append(g.structData.tzFields, field.field)
-			case strings.HasSuffix(field.typeName, "nullable.Time"):
+			case "nullable.Time":
 				g.structData.nullableTZFields = append(g.structData.nullableTZFields, field.field)
 			}
 		}
@@ -276,6 +312,7 @@ func applyTemplate(name, tpl string, data any) ([]byte, error) {
 func (g *generator) templateData() any {
 	type dataField struct {
 		Field           string
+		Type            string
 		Column          string
 		IsDefaultColumn bool
 		Property        string
@@ -283,6 +320,7 @@ func (g *generator) templateData() any {
 
 	type data struct {
 		Type                     string
+		UnexportedType           string
 		SourcePath               string
 		Package                  string
 		HasDefaultColumns        bool
@@ -294,6 +332,7 @@ func (g *generator) templateData() any {
 
 	d := data{
 		Type:                     g.typeName,
+		UnexportedType:           toLowerFirst(g.typeName),
 		SourcePath:               g.sourcePath,
 		Package:                  g.pkg.Name,
 		HasDefaultColumns:        len(g.structData.defaultColumns) > 0,
@@ -304,12 +343,28 @@ func (g *generator) templateData() any {
 	for _, field := range g.structData.fields {
 		d.Fields = append(d.Fields, dataField{
 			Field:           field.field,
+			Type:            field.typeName,
 			Column:          field.column,
 			IsDefaultColumn: field.isDefaultColumn,
 			Property:        field.property,
 		})
 	}
 	return d
+}
+
+func toLowerFirst(s string) string {
+	if s == "" {
+		return s
+	}
+
+	firstByte := s[0]
+	if !(firstByte >= 'A' && firstByte <= 'Z') {
+		return s
+	}
+
+	b := []byte(s)
+	b[0] = firstByte + ('a' - 'A')
+	return string(b)
 }
 
 func (g *generator) defaultColumns() string {

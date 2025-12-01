@@ -29,10 +29,24 @@ import ...
 
 const <Type>DefaultColumns = "..."
 
-var <Type>Meta = meta.NewMeta([]meta.FieldMeta{
-	{Field: "...", Column: "...", Property: "..."},
+var (
+	<Type>Meta = <type>Meta{
+		Lookup_: <type>LookupMeta,
+		<Field>: <type>LookupMeta.Fields()[<Field index>],
+		...
+	}
+
+	<type>LookupMeta = meta.NewLookup([]meta.Field{
+		{Field: "...", Column: "...", Property: "...", Type: "..."},
+		...
+	})
+)
+
+type <type>Meta struct {
+	*meta.Lookup_
+	<Field> meta.Field
 	...
-})
+}
 
 func (m <Type>) Fields() (entity *<Type>, fields []any) {
 	return &m, []any{
@@ -41,8 +55,8 @@ func (m <Type>) Fields() (entity *<Type>, fields []any) {
 	}
 }
 
-func (m *<Type>) Meta() *meta.Meta {
-	return <Type>Meta
+func (m *<Type>) LookupMeta() *meta.Lookup_ {
+	return <Type>Meta.Lookup_
 }
 
 func (m *<Type>) <Field ends with At>InTZ() nullable.Time {
