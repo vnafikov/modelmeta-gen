@@ -40,7 +40,7 @@ var (
 {{end}}	}
 
 	{{.UnexportedType}}LookupMeta = meta.NewLookup([]meta.Field{
-{{range .Fields}}		{Field: "{{.Field}}", Column: "{{.Column}}", Property: "{{.Property}}", Type: "{{.Type}}"},
+{{range $i, $f := .Fields}}		{Index: {{$i}}, Field: "{{.Field}}", Column: "{{.Column}}", Property: "{{.Property}}", Type: "{{.Type}}"},
 {{end}}	})
 )
 
@@ -55,6 +55,14 @@ func (m {{.Type}}) Fields() (entity *{{.Type}}, fields []any) {
 {{end}}{{end}}	}
 }
 {{end}}
+func (m *{{.Type}}) FieldByIndex(index int) any {
+	switch index {
+{{range $i, $f := .Fields}}	case {{$i}}:
+		return m.{{.Field}}
+{{end}}	}
+	return nil
+}
+
 func (m *{{.Type}}) LookupMeta() *meta.Lookup_ {
 	return {{.Type}}Meta.Lookup_
 }

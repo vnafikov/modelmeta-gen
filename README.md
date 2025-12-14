@@ -37,7 +37,7 @@ var (
 	}
 
 	<type>LookupMeta = meta.NewLookup([]meta.Field{
-		{Field: "...", Column: "...", Property: "...", Type: "..."},
+		{Index: <Field index>, Field: "...", Column: "...", Property: "...", Type: "..."},
 		...
 	})
 )
@@ -53,6 +53,15 @@ func (m <Type>) Fields() (entity *<Type>, fields []any) {
 		&m.<Field>,
 		...
 	}
+}
+
+func (m *<Type>) FieldByIndex(index int) any {
+	switch index {
+	case <Field index>:
+		return m.<Field>
+	...
+	}
+	return nil
 }
 
 func (m *<Type>) LookupMeta() *meta.Lookup_ {
