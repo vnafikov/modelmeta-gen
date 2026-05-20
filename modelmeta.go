@@ -249,7 +249,7 @@ func (g *generator) readStructFields() {
 		property := api[0]
 		g.structData.fields = append(g.structData.fields, structField{
 			field:           fieldName,
-			typeName:        onlyType(field.Type().String()),
+			typeName:        underlyingType(field.Type()),
 			column:          column,
 			isDefaultColumn: isDefaultColumn,
 			property:        property,
@@ -259,6 +259,13 @@ func (g *generator) readStructFields() {
 			g.structData.defaultColumns = append(g.structData.defaultColumns, column)
 		}
 	}
+}
+
+func underlyingType(t types.Type) string {
+	if basic, ok := t.Underlying().(*types.Basic); ok {
+		return basic.Name()
+	}
+	return onlyType(t.String())
 }
 
 func onlyType(typeName string) string {
