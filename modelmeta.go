@@ -269,11 +269,13 @@ func underlyingType(t types.Type) string {
 }
 
 func onlyType(typeName string) string {
-	index := strings.LastIndexByte(typeName, '/')
-	if index < 0 {
-		return typeName
+	if index := strings.LastIndexByte(typeName, '['); index > 0 {
+		typeName = typeName[:index]
 	}
-	return typeName[index+1:]
+	if index := strings.LastIndexByte(typeName, '/'); index >= 0 {
+		return typeName[index+1:]
+	}
+	return typeName
 }
 
 func parseTag(tag string, keys ...string) [][]string {
