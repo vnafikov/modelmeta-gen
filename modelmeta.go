@@ -265,17 +265,34 @@ func underlyingType(t types.Type) string {
 	if basic, ok := t.Underlying().(*types.Basic); ok {
 		return basic.Name()
 	}
-	return onlyType(t.String())
+
+	shortType := onlyType(t.String())
+	named, ok := t.(*types.Named)
+	if !ok {
+		return shortType
+	}
+
+	typeArgs := named.TypeArgs()
+	typeArgCount := typeArgs.Len()
+	if typeArgCount == 0 {
+		return shortType
+	}
+
+	args := make([]string, typeArgCount)
+	for i := range args {
+		args[i] = underlyingType(typeArgs.At(i))
+	}
+	return shortType + "[" + strings.Join(args, ", ") + "]"
 }
 
-func onlyType(typeName string) string {
-	if index := strings.LastIndexByte(typeName, '['); index > 0 {
-		typeName = typeName[:index]
+func onlyType(t string) string {
+	if index := strings.LastIndexByte(t, '['); index > 0 {
+		t = t[:index]
 	}
-	if index := strings.LastIndexByte(typeName, '/'); index >= 0 {
-		return typeName[index+1:]
+	if index := strings.LastIndexByte(t, '/'); index >= 0 {
+		return t[index+1:]
 	}
-	return typeName
+	return t
 }
 
 func parseTag(tag string, keys ...string) [][]string {
